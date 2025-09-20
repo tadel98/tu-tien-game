@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu Tiên Game - Đăng Nhập & Đăng Ký</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+        }
+
+        .auth-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .auth-header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 4px;
+        }
+
+        .auth-tab {
+            flex: 1;
+            padding: 12px 20px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #6c757d;
+        }
+
+        .auth-tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-form {
+            display: none;
+        }
+
+        .auth-form.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group input.error {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+
+        .form-group input.success {
+            border-color: #27ae60;
+            background: #f0f9f0;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .success-message {
+            color: #27ae60;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .auth-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .auth-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-links {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .auth-links a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .auth-links a:hover {
+            color: #764ba2;
+        }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .password-requirements ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .password-requirements li {
+            margin: 2px 0;
+        }
+
+        .password-requirements li.valid {
+            color: #27ae60;
+        }
+
+        .password-requirements li.invalid {
+            color: #e74c3c;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .game-link {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .game-link a {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .game-link a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(39, 174, 96, 0.3);
+        }
+
+        @media (max-width: 480px) {
+            .auth-container {
+                margin: 20px;
+                padding: 30px 20px;
+            }
+            
+            .auth-header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>🐉 Tu Tiên Game</h1>
+            <p>Tham gia cuộc phiêu lưu tu tiên huyền thoại</p>
+        </div>
+
+        <div class="auth-tabs">
+            <div class="auth-tab active" onclick="switchTab('login')">Đăng Nhập</div>
+            <div class="auth-tab" onclick="switchTab('register')">Đăng Ký</div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form active">
+            <div class="form-group">
+                <label for="loginUsername">Tên đăng nhập</label>
+                <input type="text" id="loginUsername" name="username" required>
+                <div class="error-message" id="loginUsernameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">Mật khẩu</label>
+                <input type="password" id="loginPassword" name="password" required>
+                <div class="error-message" id="loginPasswordError"></div>
+            </div>
+
+            <button type="submit" class="auth-button" id="loginButton">
+                Đăng Nhập
+            </button>
+
+            <div class="auth-links">
+                <a href="#" onclick="switchTab('forgot-password')">Quên mật khẩu?</a>
+            </div>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="auth-form">
+            <div class="form-group">
+                <label for="registerUsername">Tên đăng nhập</label>
+                <input type="text" id="registerUsername" name="username" required>
+                <div class="error-message" id="registerUsernameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="registerEmail">Email (tùy chọn)</label>
+                <input type="email" id="registerEmail" name="email">
+                <div class="error-message" id="registerEmailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="registerName">Tên hiển thị</label>
+                <input type="text" id="registerName" name="name">
+                <div class="error-message" id="registerNameError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="registerPassword">Mật khẩu</label>
+                <input type="password" id="registerPassword" name="password" required>
+                <div class="password-requirements" id="passwordRequirements">
+                    <ul>
+                        <li id="req-length">Ít nhất 6 ký tự</li>
+                        <li id="req-lowercase">Có chữ thường</li>
+                        <li id="req-uppercase">Có chữ hoa</li>
+                        <li id="req-number">Có số</li>
+                    </ul>
+                </div>
+                <div class="error-message" id="registerPasswordError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Xác nhận mật khẩu</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required>
+                <div class="error-message" id="confirmPasswordError"></div>
+            </div>
+
+            <button type="submit" class="auth-button" id="registerButton">
+                Đăng Ký
+            </button>
+        </form>
+
+        <!-- Forgot Password Form -->
+        <form id="forgotPasswordForm" class="auth-form">
+            <div class="form-group">
+                <label for="forgotEmail">Email</label>
+                <input type="email" id="forgotEmail" name="email" required>
+                <div class="error-message" id="forgotEmailError"></div>
+            </div>
+
+            <button type="submit" class="auth-button" id="forgotButton">
+                Gửi Email Đặt Lại Mật Khẩu
+            </button>
+
+            <div class="auth-links">
+                <a href="#" onclick="switchTab('login')">Quay lại đăng nhập</a>
+            </div>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="loading-spinner"></div>
+            <p>Đang xử lý...</p>
+        </div>
+
+        <div class="game-link">
+            <a href="game-multiplayer.html">🎮 Chơi Game (Không cần đăng nhập)</a>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentTab = 'login';
+        let authToken = localStorage.getItem('authToken');
+
+        // Check if already logged in
+        if (authToken) {
+            window.location.href = 'game-multiplayer.html';
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+
+            // Update forms
+            document.querySelectorAll('.auth-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Form').classList.add('active');
+
+            currentTab = tabName;
+            clearErrors();
+        }
+
+        // Clear all error messages
+        function clearErrors() {
+            document.querySelectorAll('.error-message, .success-message').forEach(msg => {
+                msg.style.display = 'none';
+                msg.textContent = '';
+            });
+            document.querySelectorAll('input').forEach(input => {
+                input.classList.remove('error', 'success');
+            });
+        }
+
+        // Show error message
+        function showError(fieldId, message) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            const inputElement = document.getElementById(fieldId);
+            
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            inputElement.classList.add('error');
+        }
+
+        // Show success message
+        function showSuccess(fieldId, message) {
+            const successElement = document.getElementById(fieldId + 'Success') || document.getElementById(fieldId + 'Error');
+            const inputElement = document.getElementById(fieldId);
+            
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            successElement.style.color = '#27ae60';
+            inputElement.classList.add('success');
+        }
+
+        // Show loading
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.querySelectorAll('.auth-button').forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+
+        // Hide loading
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.querySelectorAll('.auth-button').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        // Validate password requirements
+        function validatePassword(password) {
+            const requirements = {
+                length: password.length >= 6,
+                lowercase: /[a-z]/.test(password),
+                uppercase: /[A-Z]/.test(password),
+                number: /\d/.test(password)
+            };
+
+            // Update UI
+            Object.keys(requirements).forEach(req => {
+                const element = document.getElementById(`req-${req}`);
+                if (element) {
+                    element.classList.toggle('valid', requirements[req]);
+                    element.classList.toggle('invalid', !requirements[req]);
+                }
+            });
+
+            return Object.values(requirements).every(req => req);
+        }
+
+        // Password confirmation validation
+        function validatePasswordConfirmation(password, confirmPassword) {
+            return password === confirmPassword;
+        }
+
+        // API calls
+        async function apiCall(url, data) {
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                return { success: response.ok, data: result };
+            } catch (error) {
+                return { success: false, data: { message: 'Lỗi kết nối' } };
+            }
+        }
+
+        // Login
+        async function login(username, password) {
+            const result = await apiCall('/api/auth/login', { username, password });
+            
+            if (result.success) {
+                localStorage.setItem('authToken', result.data.token);
+                localStorage.setItem('playerData', JSON.stringify(result.data.player));
+                showSuccess('loginUsername', 'Đăng nhập thành công!');
+                setTimeout(() => {
+                    window.location.href = 'game-multiplayer.html';
+                }, 1000);
+            } else {
+                showError('loginUsername', result.data.message);
+            }
+        }
+
+        // Register
+        async function register(username, email, name, password) {
+            const result = await apiCall('/api/auth/register', { 
+                username, 
+                email, 
+                name, 
+                password 
+            });
+            
+            if (result.success) {
+                localStorage.setItem('authToken', result.data.token);
+                localStorage.setItem('playerData', JSON.stringify(result.data.player));
+                showSuccess('registerUsername', 'Đăng ký thành công!');
+                setTimeout(() => {
+                    window.location.href = 'game-multiplayer.html';
+                }, 1000);
+            } else {
+                if (result.data.errors) {
+                    result.data.errors.forEach(error => {
+                        showError('register' + error.param.charAt(0).toUpperCase() + error.param.slice(1), error.msg);
+                    });
+                } else {
+                    showError('registerUsername', result.data.message);
+                }
+            }
+        }
+
+        // Forgot password
+        async function forgotPassword(email) {
+            const result = await apiCall('/api/auth/forgot-password', { email });
+            
+            if (result.success) {
+                showSuccess('forgotEmail', result.data.message);
+            } else {
+                showError('forgotEmail', result.data.message);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearErrors();
+            showLoading();
+
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            await login(username, password);
+            hideLoading();
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearErrors();
+            showLoading();
+
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const name = document.getElementById('registerName').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            // Validate password
+            if (!validatePassword(password)) {
+                showError('registerPassword', 'Mật khẩu không đáp ứng yêu cầu');
+                hideLoading();
+                return;
+            }
+
+            // Validate password confirmation
+            if (!validatePasswordConfirmation(password, confirmPassword)) {
+                showError('confirmPassword', 'Mật khẩu xác nhận không khớp');
+                hideLoading();
+                return;
+            }
+
+            await register(username, email, name, password);
+            hideLoading();
+        });
+
+        document.getElementById('forgotPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearErrors();
+            showLoading();
+
+            const email = document.getElementById('forgotEmail').value;
+
+            await forgotPassword(email);
+            hideLoading();
+        });
+
+        // Real-time password validation
+        document.getElementById('registerPassword').addEventListener('input', (e) => {
+            validatePassword(e.target.value);
+        });
+
+        // Real-time password confirmation
+        document.getElementById('confirmPassword').addEventListener('input', (e) => {
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = e.target.value;
+
+            if (confirmPassword && !validatePasswordConfirmation(password, confirmPassword)) {
+                showError('confirmPassword', 'Mật khẩu xác nhận không khớp');
+            } else {
+                clearErrors();
+            }
+        });
+
+        // Auto-focus first input
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('loginUsername').focus();
+        });
+    </script>
+</body>
+</html>

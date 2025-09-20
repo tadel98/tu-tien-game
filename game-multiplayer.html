@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tu Tiên Multiplayer Game</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client-socket-manager.js"></script>
+    <link rel="stylesheet" href="css/auth.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Main Layout */
+        .game-layout {
+            display: grid;
+            grid-template-areas: 
+                "header header header"
+                "sidebar main chat"
+                "footer footer footer";
+            grid-template-columns: 250px 1fr 300px;
+            grid-template-rows: 80px 1fr 60px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        /* Header */
+        .game-header {
+            grid-area: header;
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 5px 20px rgba(74, 20, 140, 0.3);
+        }
+
+        .game-title {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .connected .status-indicator {
+            background: #4caf50;
+        }
+
+        .disconnected .status-indicator {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Sidebar */
+        .game-sidebar {
+            grid-area: sidebar;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-section {
+            margin-bottom: 25px;
+        }
+
+        .sidebar-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #ff6b35;
+        }
+
+        .player-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            margin: 0 auto 15px;
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .stat-bar {
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .stat-progress {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .stat-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .health-fill { background: linear-gradient(90deg, #f44336, #ff9800); }
+        .mana-fill { background: linear-gradient(90deg, #2196f3, #00bcd4); }
+        .exp-fill { background: linear-gradient(90deg, #4caf50, #8bc34a); }
+
+        /* Main Content */
+        .game-main {
+            grid-area: main;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow-y: auto;
+        }
+
+        .main-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 5px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            color: #ccc;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            color: white;
+            box-shadow: 0 3px 10px rgba(74, 20, 140, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Chat Panel */
+        .game-chat {
+            grid-area: chat;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            max-height: 400px;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 5px 0;
+            font-size: 0.9em;
+        }
+
+        .chat-sender {
+            font-weight: bold;
+            color: #ff6b35;
+        }
+
+        .chat-timestamp {
+            color: #888;
+            font-size: 0.8em;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+        }
+
+        .chat-input input::placeholder {
+            color: #888;
+        }
+
+        .chat-send-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chat-send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 20, 140, 0.4);
+        }
+
+        /* Footer */
+        .game-footer {
+            grid-area: footer;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .footer-info {
+            display: flex;
+            gap: 30px;
+            font-size: 0.9em;
+            color: #ccc;
+        }
+
+        .footer-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            color: white;
+            margin: 5px;
+            font-size: 0.9em;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 20, 140, 0.4);
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success { background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%); }
+        .btn-warning { background: linear-gradient(135deg, #ff9800 0%, #ffc107 100%); }
+        .btn-danger { background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); }
+        .btn-info { background: linear-gradient(135deg, #2196f3 0%, #00bcd4 100%); }
+
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        /* Additional UI Elements */
+        .inventory-slot {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .inventory-slot:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #ff6b35;
+            transform: translateY(-2px);
+        }
+
+        .shop-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .quest-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .quest-title {
+            font-weight: bold;
+            color: #ff6b35;
+            margin-bottom: 5px;
+        }
+
+        .quest-progress {
+            font-size: 0.9em;
+            color: #ccc;
+            margin-bottom: 10px;
+        }
+
+        /* Game time and stats */
+        .game-time {
+            font-family: 'Consolas', 'Courier New', monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .game-layout {
+                grid-template-areas: 
+                    "header header"
+                    "main chat"
+                    "sidebar sidebar"
+                    "footer footer";
+                grid-template-columns: 1fr 300px;
+                grid-template-rows: 80px 1fr 200px 60px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-layout {
+                grid-template-areas: 
+                    "header"
+                    "main"
+                    "chat"
+                    "sidebar"
+                    "footer";
+                grid-template-columns: 1fr;
+                grid-template-rows: 80px 1fr 200px 200px 60px;
+            }
+        }
+
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            border-radius: 10px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .disconnected {
+            background: #f44336;
+            color: white;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel h3 {
+            margin-top: 0;
+            color: #ff6b35;
+            border-bottom: 2px solid #ff6b35;
+            padding-bottom: 10px;
+        }
+
+        .player-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ff6b35;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #ccc;
+            margin-top: 5px;
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #4a148c 0%, #7b1fa2 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 20, 140, 0.4);
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800 0%, #ffc107 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+        }
+
+        .log-panel {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        .log-success {
+            color: #4caf50;
+        }
+
+        .log-error {
+            color: #f44336;
+        }
+
+        .log-info {
+            color: #2196f3;
+        }
+
+        .chat-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+
+        .chat-sender {
+            font-weight: bold;
+            color: #ff6b35;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .chat-input button {
+            padding: 10px 20px;
+            background: #4a148c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .players-list {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        .player-name {
+            font-weight: bold;
+        }
+
+        .player-level {
+            color: #ff6b35;
+        }
+
+        .player-power {
+            color: #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-layout">
+            <!-- Header -->
+            <header class="game-header">
+                <div class="game-title">🐉 Tu Tiên Multiplayer Game</div>
+                <div class="header-controls">
+                    <div id="authStatus" class="auth-status">
+                        <span id="playerName">Chưa đăng nhập</span>
+                        <button id="loginBtn" class="auth-btn" onclick="showAuthModal()">Đăng Nhập</button>
+                        <button id="logoutBtn" class="auth-btn logout" onclick="logout()" style="display: none;">Đăng Xuất</button>
+                    </div>
+                    <div id="connectionStatus" class="connection-status disconnected">
+                        <div class="status-indicator"></div>
+                        <span>Disconnected</span>
+                    </div>
+                </div>
+            </header>
+
+        <!-- Sidebar -->
+        <aside class="game-sidebar">
+            <div class="sidebar-section">
+                <div class="player-avatar">👤</div>
+                <div class="sidebar-title">Thông Tin Nhân Vật</div>
+                
+                <div class="stat-bar">
+                    <div class="stat-label">
+                        <span>💖 Sinh Lực</span>
+                        <span id="healthText">100/100</span>
+                    </div>
+                    <div class="stat-progress">
+                        <div class="stat-fill health-fill" id="healthBar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="stat-bar">
+                    <div class="stat-label">
+                        <span>💙 Pháp Lực</span>
+                        <span id="manaText">50/50</span>
+                    </div>
+                    <div class="stat-progress">
+                        <div class="stat-fill mana-fill" id="manaBar" style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="stat-bar">
+                    <div class="stat-label">
+                        <span>⭐ Kinh Nghiệm</span>
+                        <span id="expText">0/100</span>
+                    </div>
+                    <div class="stat-progress">
+                        <div class="stat-fill exp-fill" id="expBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Tài Nguyên</div>
+                <div style="font-size: 0.9em; line-height: 1.8;">
+                    <div>💰 Vàng: <span id="goldAmount">100</span></div>
+                    <div>💎 KNB: <span id="knbAmount">0</span></div>
+                    <div>🔮 Linh Thạch: <span id="spiritStones">0</span></div>
+                    <div>⚡ Sức Mạnh: <span id="powerAmount">0</span></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Tu Luyện</div>
+                <div style="font-size: 0.9em; line-height: 1.8;">
+                    <div>Cảnh Giới: <span id="cultivationRealm">Phàm Nhân</span></div>
+                    <div>Cấp: <span id="cultivationStage">1</span></div>
+                    <div>Tiến Độ: <span id="cultivationProgress">0%</span></div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-title">Đồng Hành</div>
+                <div style="font-size: 0.9em; line-height: 1.8;">
+                    <div>🦊 Linh Thú: <span id="petName">Chưa có</span></div>
+                    <div>👰 Đạo Lữ: <span id="wifeName">Chưa có</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="game-main">
+            <div class="main-tabs">
+                <button class="tab-button active" onclick="switchTab('character')">👤 Nhân Vật</button>
+                <button class="tab-button" onclick="switchTab('inventory')">🎒 Túi Đồ</button>
+                <button class="tab-button" onclick="switchTab('companion')">🐾 Đồng Hành</button>
+                <button class="tab-button" onclick="switchTab('quest')">📜 Nhiệm Vụ</button>
+                <button class="tab-button" onclick="switchTab('guild')">🏰 Bang Hội</button>
+                <button class="tab-button" onclick="switchTab('shop')">🛒 Cửa Hàng</button>
+                <button class="tab-button" onclick="switchTab('arena')">⚔️ Đấu Trường</button>
+            </div>
+
+            <!-- Character Tab -->
+            <div id="characterTab" class="tab-content active">
+                <div class="card">
+                    <div class="card-title">🧘 Tu Luyện</div>
+                    <div class="grid-2">
+                        <div>
+                            <button class="btn btn-warning" onclick="cultivate(1000)">
+                                🧘 Tu Luyện 1s
+                            </button>
+                            <button class="btn btn-warning" onclick="cultivate(5000)">
+                                🧘 Tu Luyện 5s
+                            </button>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" onclick="useItem('cultivation_pill')">
+                                💊 Dùng Tu Luyện Đan
+                            </button>
+                            <button class="btn btn-info" onclick="useItem('experience_pill')">
+                                💊 Dùng Kinh Nghiệm Đan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">⚔️ Chiến Đấu</div>
+                    <div class="grid-3">
+                        <button class="btn btn-success" onclick="useItem('hp_potion_small')">
+                            🍷 Bình Máu
+                        </button>
+                        <button class="btn btn-info" onclick="useItem('mana_potion_small')">
+                            💙 Bình Mana
+                        </button>
+                        <button class="btn btn-warning" onclick="useItem('gold_pouch')">
+                            💰 Túi Vàng
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">🎯 Hành Động Nhanh</div>
+                    <div class="grid-4">
+                        <button class="btn" onclick="obtainPet('fire_fox')">
+                            🦊 Linh Thú
+                        </button>
+                        <button class="btn" onclick="obtainWife('ice_fairy')">
+                            👰 Đạo Lữ
+                        </button>
+                        <button class="btn" onclick="acceptQuest('first_cultivation')">
+                            📜 Nhiệm Vụ
+                        </button>
+                        <button class="btn btn-danger" onclick="adminAddKNB(1000)">
+                            💎 +1000 KNB
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div id="inventoryTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🎒 Túi Đồ</div>
+                    <div id="inventoryItems" class="grid-4">
+                        <div class="inventory-slot">Trống</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Companion Tab -->
+            <div id="companionTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🦊 Linh Thú</div>
+                    <div id="petInfo">
+                        <p>Chưa có linh thú</p>
+                        <button class="btn" onclick="obtainPet('fire_fox')">Thu thập Hồ Ly Lửa</button>
+                        <button class="btn" onclick="obtainPet('ice_wolf')">Thu thập Sói Băng</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">👰 Đạo Lữ</div>
+                    <div id="wifeInfo">
+                        <p>Chưa có đạo lữ</p>
+                        <button class="btn" onclick="obtainWife('ice_fairy')">Kết duyên Băng Tiên Tử</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quest Tab -->
+            <div id="questTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">📜 Nhiệm Vụ Hoạt Động</div>
+                    <div id="activeQuests">
+                        <p>Chưa có nhiệm vụ</p>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">🎯 Nhiệm Vụ Có Thể Nhận</div>
+                    <div>
+                        <button class="btn" onclick="acceptQuest('first_cultivation')">Tu Luyện Đầu Tiên</button>
+                        <button class="btn" onclick="acceptQuest('level_up_quest')">Lên Cấp</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Guild Tab -->
+            <div id="guildTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🏰 Bang Hội</div>
+                    <div id="guildInfo">
+                        <p>Chưa tham gia bang hội</p>
+                        <button class="btn" onclick="joinGuild('test_guild')">Tham gia bang hội</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shop Tab -->
+            <div id="shopTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">🛒 Cửa Hàng Thường</div>
+                    <div class="grid-3">
+                        <div class="shop-item">
+                            <div>🍷 Bình Máu Nhỏ</div>
+                            <div>💰 10 Vàng</div>
+                            <button class="btn btn-success" onclick="buyItem('hp_potion_small', 10)">Mua</button>
+                        </div>
+                        <div class="shop-item">
+                            <div>💙 Bình Mana Nhỏ</div>
+                            <div>💰 8 Vàng</div>
+                            <button class="btn btn-info" onclick="buyItem('mana_potion_small', 8)">Mua</button>
+                        </div>
+                        <div class="shop-item">
+                            <div>💊 Tu Luyện Đan</div>
+                            <div>💰 150 Vàng</div>
+                            <button class="btn btn-warning" onclick="buyItem('cultivation_pill', 150)">Mua</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">💎 Kỳ Trân Các (KNB)</div>
+                    <div class="grid-2">
+                        <div class="shop-item">
+                            <div>📅 Thẻ Tháng</div>
+                            <div>💎 500 KNB</div>
+                            <button class="btn btn-danger" onclick="purchasePremiumItem('monthly_card')">Mua</button>
+                        </div>
+                        <div class="shop-item">
+                            <div>🐎 Thú Cưỡi Hiếm</div>
+                            <div>💎 2500 KNB</div>
+                            <button class="btn btn-danger" onclick="purchasePremiumItem('rare_mount')">Mua</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Arena Tab -->
+            <div id="arenaTab" class="tab-content">
+                <div class="card">
+                    <div class="card-title">⚔️ Đấu Trường</div>
+                    <div>
+                        <p>Xếp hạng: <span id="arenaRank">Chưa xếp hạng</span></p>
+                        <p>Điểm: <span id="arenaPoints">1000</span></p>
+                        <p>Thắng: <span id="arenaWins">0</span> | Thua: <span id="arenaLosses">0</span></p>
+                        <button class="btn btn-warning" onclick="startArenaMatch()">Bắt đầu trận đấu</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Chat Panel -->
+        <aside class="game-chat">
+            <div class="sidebar-title">💬 Chat</div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-message">
+                    <span class="chat-timestamp">[00:00:00]</span>
+                    <span class="log-info">Chào mừng đến với Tu Tiên Multiplayer!</span>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." onkeypress="handleChatKeyPress(event)">
+                <button class="chat-send-btn" onclick="sendChatMessage()">Gửi</button>
+            </div>
+        </aside>
+
+        <!-- Footer -->
+        <footer class="game-footer">
+            <div class="footer-info">
+                <div class="footer-stat">
+                    <span>👥 Online:</span>
+                    <span id="onlineCount">1</span>
+                </div>
+                <div class="footer-stat">
+                    <span>🏠 Phòng:</span>
+                    <span id="roomName">Khu Vực Chính</span>
+                </div>
+                <div class="footer-stat">
+                    <span>⏰ Thời gian:</span>
+                    <span id="gameTime">00:00:00</span>
+                </div>
+            </div>
+            <div class="footer-info">
+                <div class="footer-stat">
+                    <span>🎮 FPS:</span>
+                    <span id="fps">60</span>
+                </div>
+                <div class="footer-stat">
+                    <span>📊 Ping:</span>
+                    <span id="ping">0ms</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Authentication Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <button class="close-modal" onclick="hideAuthModal()">&times;</button>
+            
+            <div class="auth-modal-header">
+                <h2>🐉 Tu Tiên Game</h2>
+                <p>Đăng nhập hoặc đăng ký để lưu tiến độ</p>
+            </div>
+
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">Đăng Nhập</div>
+                <div class="auth-tab" onclick="switchAuthTab('register')">Đăng Ký</div>
+            </div>
+
+            <!-- Login Form -->
+            <form id="modalLoginForm" class="auth-form active">
+                <div class="form-group">
+                    <label for="modalLoginUsername">Tên đăng nhập</label>
+                    <input type="text" id="modalLoginUsername" name="username" required>
+                    <div class="error-message" id="modalLoginUsernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalLoginPassword">Mật khẩu</label>
+                    <input type="password" id="modalLoginPassword" name="password" required>
+                    <div class="error-message" id="modalLoginPasswordError"></div>
+                </div>
+
+                <button type="submit" class="auth-button" id="modalLoginButton">
+                    Đăng Nhập
+                </button>
+
+                <div class="auth-links">
+                    <a href="#" onclick="switchAuthTab('forgot-password')">Quên mật khẩu?</a>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="modalRegisterForm" class="auth-form">
+                <div class="form-group">
+                    <label for="modalRegisterUsername">Tên đăng nhập</label>
+                    <input type="text" id="modalRegisterUsername" name="username" required>
+                    <div class="error-message" id="modalRegisterUsernameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalRegisterEmail">Email (tùy chọn)</label>
+                    <input type="email" id="modalRegisterEmail" name="email">
+                    <div class="error-message" id="modalRegisterEmailError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalRegisterName">Tên hiển thị</label>
+                    <input type="text" id="modalRegisterName" name="name">
+                    <div class="error-message" id="modalRegisterNameError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalRegisterPassword">Mật khẩu</label>
+                    <input type="password" id="modalRegisterPassword" name="password" required>
+                    <div class="password-requirements" id="modalPasswordRequirements">
+                        <ul>
+                            <li id="modalReqLength">Ít nhất 6 ký tự</li>
+                            <li id="modalReqLowercase">Có chữ thường</li>
+                            <li id="modalReqUppercase">Có chữ hoa</li>
+                            <li id="modalReqNumber">Có số</li>
+                        </ul>
+                    </div>
+                    <div class="error-message" id="modalRegisterPasswordError"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="modalConfirmPassword">Xác nhận mật khẩu</label>
+                    <input type="password" id="modalConfirmPassword" name="confirmPassword" required>
+                    <div class="error-message" id="modalConfirmPasswordError"></div>
+                </div>
+
+                <button type="submit" class="auth-button" id="modalRegisterButton">
+                    Đăng Ký
+                </button>
+            </form>
+
+            <!-- Forgot Password Form -->
+            <form id="modalForgotPasswordForm" class="auth-form">
+                <div class="form-group">
+                    <label for="modalForgotEmail">Email</label>
+                    <input type="email" id="modalForgotEmail" name="email" required>
+                    <div class="error-message" id="modalForgotEmailError"></div>
+                </div>
+
+                <button type="submit" class="auth-button" id="modalForgotButton">
+                    Gửi Email Đặt Lại Mật Khẩu
+                </button>
+
+                <div class="auth-links">
+                    <a href="#" onclick="switchAuthTab('login')">Quay lại đăng nhập</a>
+                </div>
+            </form>
+
+            <div class="loading" id="modalLoading">
+                <div class="loading-spinner"></div>
+                <p>Đang xử lý...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            player: {
+                id: null,
+                name: 'Người Chơi',
+                username: null,
+                level: 1,
+                health: 100,
+                maxHealth: 100,
+                mana: 50,
+                maxMana: 50,
+                experience: 0,
+                experienceToNext: 100,
+                gold: 100,
+                power: 0,
+                cultivation: { 
+                    realm: 'Phàm Nhân', 
+                    stage: 1, 
+                    progress: 0,
+                    progressToNext: 1000
+                },
+                stats: { attack: 10, defense: 5, speed: 8, intelligence: 5, luck: 5 },
+                pet: { petId: null, name: null },
+                wife: { wifeId: null, name: null },
+                inventory: { items: [] },
+                resources: { 
+                    gold: 100, 
+                    spirit_stones: 0, 
+                    cultivation_pills: 0, 
+                    kim_nguyen_bao: 0 
+                },
+                arenaStats: {
+                    rank: 'Chưa xếp hạng',
+                    points: 1000,
+                    wins: 0,
+                    losses: 0
+                },
+                activeQuests: [],
+                guild: null,
+                isVerified: false
+            },
+            players: [],
+            connected: false,
+            currentTab: 'character',
+            authenticated: false,
+            authToken: null
+        };
+
+        // Socket manager
+        let socketManager = new ClientSocketManager();
+
+        // Check authentication on page load
+        function checkAuthentication() {
+            const token = localStorage.getItem('authToken');
+            const playerData = localStorage.getItem('playerData');
+            
+            if (token && playerData) {
+                try {
+                    gameState.authToken = token;
+                    gameState.authenticated = true;
+                    gameState.player = { ...gameState.player, ...JSON.parse(playerData) };
+                    console.log('✅ User authenticated:', gameState.player.username);
+                } catch (error) {
+                    console.error('❌ Invalid stored data:', error);
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('playerData');
+                }
+            }
+        }
+
+        // Authentication functions
+        async function login(username, password) {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    localStorage.setItem('authToken', result.token);
+                    localStorage.setItem('playerData', JSON.stringify(result.player));
+                    gameState.authToken = result.token;
+                    gameState.authenticated = true;
+                    gameState.player = { ...gameState.player, ...result.player };
+                    addLog('Đăng nhập thành công!', 'success');
+                    return true;
+                } else {
+                    addLog(result.message, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                addLog('Lỗi đăng nhập: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        async function register(username, email, name, password) {
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, email, name, password })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    localStorage.setItem('authToken', result.token);
+                    localStorage.setItem('playerData', JSON.stringify(result.player));
+                    gameState.authToken = result.token;
+                    gameState.authenticated = true;
+                    gameState.player = { ...gameState.player, ...result.player };
+                    addLog('Đăng ký thành công!', 'success');
+                    return true;
+                } else {
+                    addLog(result.message, 'error');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                addLog('Lỗi đăng ký: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('playerData');
+            gameState.authToken = null;
+            gameState.authenticated = false;
+            gameState.player.username = null;
+            gameState.player.isVerified = false;
+            updateAuthUI();
+            addLog('Đã đăng xuất', 'info');
+        }
+
+        // Authentication Modal Functions
+        function showAuthModal() {
+            document.getElementById('authModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            clearModalErrors();
+        }
+
+        function switchAuthTab(tabName) {
+            // Update tabs
+            document.querySelectorAll('.auth-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[onclick="switchAuthTab('${tabName}')"]`).classList.add('active');
+
+            // Update forms
+            document.querySelectorAll('.auth-form').forEach(form => {
+                form.classList.remove('active');
+            });
+            document.getElementById('modal' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Form').classList.add('active');
+
+            clearModalErrors();
+        }
+
+        function clearModalErrors() {
+            document.querySelectorAll('.error-message, .success-message').forEach(msg => {
+                msg.style.display = 'none';
+                msg.textContent = '';
+            });
+            document.querySelectorAll('input').forEach(input => {
+                input.classList.remove('error', 'success');
+            });
+        }
+
+        function showModalError(fieldId, message) {
+            const errorElement = document.getElementById(fieldId + 'Error');
+            const inputElement = document.getElementById(fieldId);
+            
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            inputElement.classList.add('error');
+        }
+
+        function showModalSuccess(fieldId, message) {
+            const successElement = document.getElementById(fieldId + 'Success') || document.getElementById(fieldId + 'Error');
+            const inputElement = document.getElementById(fieldId);
+            
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            successElement.style.color = '#27ae60';
+            inputElement.classList.add('success');
+        }
+
+        function showModalLoading() {
+            document.getElementById('modalLoading').style.display = 'block';
+            document.querySelectorAll('.auth-button').forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+
+        function hideModalLoading() {
+            document.getElementById('modalLoading').style.display = 'none';
+            document.querySelectorAll('.auth-button').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        function updateAuthUI() {
+            const playerNameElement = document.getElementById('playerName');
+            const loginBtn = document.getElementById('loginBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+
+            if (gameState.authenticated && gameState.player.username) {
+                playerNameElement.textContent = gameState.player.username;
+                loginBtn.style.display = 'none';
+                logoutBtn.style.display = 'block';
+            } else {
+                playerNameElement.textContent = 'Chưa đăng nhập';
+                loginBtn.style.display = 'block';
+                logoutBtn.style.display = 'none';
+            }
+        }
+
+        // Modal form handlers
+        document.getElementById('modalLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearModalErrors();
+            showModalLoading();
+
+            const username = document.getElementById('modalLoginUsername').value;
+            const password = document.getElementById('modalLoginPassword').value;
+
+            const success = await login(username, password);
+            if (success) {
+                hideAuthModal();
+                updateAuthUI();
+            }
+            hideModalLoading();
+        });
+
+        document.getElementById('modalRegisterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearModalErrors();
+            showModalLoading();
+
+            const username = document.getElementById('modalRegisterUsername').value;
+            const email = document.getElementById('modalRegisterEmail').value;
+            const name = document.getElementById('modalRegisterName').value;
+            const password = document.getElementById('modalRegisterPassword').value;
+            const confirmPassword = document.getElementById('modalConfirmPassword').value;
+
+            // Validate password
+            if (!validatePassword(password)) {
+                showModalError('modalRegisterPassword', 'Mật khẩu không đáp ứng yêu cầu');
+                hideModalLoading();
+                return;
+            }
+
+            // Validate password confirmation
+            if (!validatePasswordConfirmation(password, confirmPassword)) {
+                showModalError('modalConfirmPassword', 'Mật khẩu xác nhận không khớp');
+                hideModalLoading();
+                return;
+            }
+
+            const success = await register(username, email, name, password);
+            if (success) {
+                hideAuthModal();
+                updateAuthUI();
+            }
+            hideModalLoading();
+        });
+
+        document.getElementById('modalForgotPasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearModalErrors();
+            showModalLoading();
+
+            const email = document.getElementById('modalForgotEmail').value;
+
+            try {
+                const response = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showModalSuccess('modalForgotEmail', result.message);
+                } else {
+                    showModalError('modalForgotEmail', result.message);
+                }
+            } catch (error) {
+                showModalError('modalForgotEmail', 'Lỗi: ' + error.message);
+            }
+            hideModalLoading();
+        });
+
+        // Password validation functions
+        function validatePassword(password) {
+            const requirements = {
+                length: password.length >= 6,
+                lowercase: /[a-z]/.test(password),
+                uppercase: /[A-Z]/.test(password),
+                number: /\d/.test(password)
+            };
+
+            // Update UI
+            Object.keys(requirements).forEach(req => {
+                const element = document.getElementById(`modalReq${req.charAt(0).toUpperCase() + req.slice(1)}`);
+                if (element) {
+                    element.classList.toggle('valid', requirements[req]);
+                    element.classList.toggle('invalid', !requirements[req]);
+                }
+            });
+
+            return Object.values(requirements).every(req => req);
+        }
+
+        function validatePasswordConfirmation(password, confirmPassword) {
+            return password === confirmPassword;
+        }
+
+        // Real-time password validation
+        document.getElementById('modalRegisterPassword').addEventListener('input', (e) => {
+            validatePassword(e.target.value);
+        });
+
+        document.getElementById('modalConfirmPassword').addEventListener('input', (e) => {
+            const password = document.getElementById('modalRegisterPassword').value;
+            const confirmPassword = e.target.value;
+
+            if (confirmPassword && !validatePasswordConfirmation(password, confirmPassword)) {
+                showModalError('modalConfirmPassword', 'Mật khẩu xác nhận không khớp');
+            } else {
+                clearModalErrors();
+            }
+        });
+
+        // Initialize game
+        function initGame() {
+            checkAuthentication();
+            updateAuthUI();
+            setupSocketEvents();
+            socketManager.connect();
+            addLog('Khởi tạo game...', 'info');
+        }
+
+        function setupSocketEvents() {
+            // Connection events
+            socketManager.on('connected', () => {
+                gameState.connected = true;
+                updateConnectionStatus();
+                addLog('Đã kết nối đến server!', 'success');
+                
+                // Join game with player data
+                socketManager.joinGame({
+                    name: gameState.player.name,
+                    level: gameState.player.level,
+                    health: gameState.player.health,
+                    maxHealth: gameState.player.maxHealth,
+                    mana: gameState.player.mana,
+                    maxMana: gameState.player.maxMana,
+                    cultivation: gameState.player.cultivation,
+                    stats: gameState.player.stats,
+                    pet: gameState.player.pet,
+                    wife: gameState.player.wife,
+                    inventory: gameState.player.inventory,
+                    resources: gameState.player.resources
+                });
+            });
+
+            socketManager.on('disconnected', (reason) => {
+                gameState.connected = false;
+                updateConnectionStatus();
+                addLog(`Mất kết nối: ${reason}`, 'error');
+            });
+
+            socketManager.on('connection_error', () => {
+                addLog('Lỗi kết nối đến server!', 'error');
+            });
+
+            // Game events
+            socketManager.on('player_data', (data) => {
+                gameState.player = { ...gameState.player, ...data };
+                updatePlayerInfo();
+                addLog(`Đã nhận dữ liệu người chơi: ${data.name}`, 'success');
+            });
+
+            socketManager.on('command_result', (result) => {
+                addLog(`Kết quả: ${result.message}`, 'success');
+                
+                // Update player data if provided
+                if (result.healthUpdate) {
+                    gameState.player.health = result.healthUpdate.current;
+                    gameState.player.maxHealth = result.healthUpdate.max;
+                }
+                if (result.manaUpdate) {
+                    gameState.player.mana = result.manaUpdate.current;
+                    gameState.player.maxMana = result.manaUpdate.max;
+                }
+                if (result.resourceUpdate) {
+                    gameState.player.resources.gold = result.resourceUpdate.gold;
+                }
+                if (result.expUpdate) {
+                    gameState.player.experience = result.expUpdate.current;
+                }
+                if (result.cultivationUpdate) {
+                    gameState.player.cultivation.progress = result.cultivationUpdate.progress;
+                }
+                if (result.levelUp) {
+                    gameState.player.level = result.levelUp.newLevel;
+                    addLog(`🎉 Lên cấp ${result.levelUp.newLevel}!`, 'success');
+                }
+                if (result.breakthrough) {
+                    gameState.player.cultivation.stage = result.breakthrough.newStage;
+                    addLog(`✨ Đột phá cảnh giới! Cấp ${result.breakthrough.newStage}`, 'success');
+                }
+                if (result.pet) {
+                    gameState.player.pet = result.pet;
+                    addLog(`🦊 Đã thu thập linh thú: ${result.pet.name || 'Unknown'}`, 'success');
+                }
+                if (result.wife) {
+                    gameState.player.wife = result.wife;
+                    addLog(`👰 Đã kết duyên: ${result.wife.name || 'Unknown'}`, 'success');
+                }
+                
+                updatePlayerInfo();
+            });
+
+            socketManager.on('command_error', (error) => {
+                addLog(`Lỗi: ${error.message}`, 'error');
+            });
+
+            socketManager.on('room_players', (players) => {
+                gameState.players = players;
+                updatePlayersList();
+            });
+
+            socketManager.on('player_joined', (data) => {
+                addLog(`${data.name} đã tham gia!`, 'info');
+            });
+
+            socketManager.on('player_left', (data) => {
+                addLog(`${data.name} đã rời khỏi game`, 'info');
+            });
+
+            socketManager.on('player_companion_update', (data) => {
+                addLog(`${data.playerName} ${data.type === 'obtain_pet' ? 'thu thập linh thú' : 'kết duyên'}!`, 'info');
+            });
+
+            socketManager.on('player_quest_update', (data) => {
+                addLog(`${data.playerName} ${data.type === 'accept_quest' ? 'nhận nhiệm vụ' : 'hoàn thành nhiệm vụ'}!`, 'info');
+            });
+
+            socketManager.on('chat_message', (data) => {
+                addChatMessage(data.playerName, data.message, data.timestamp);
+            });
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            gameState.currentTab = tabName;
+        }
+
+        // UI Update functions
+        function updateConnectionStatus() {
+            const status = document.getElementById('connectionStatus');
+            if (gameState.connected) {
+                status.querySelector('span').textContent = 'Connected';
+                status.className = 'connection-status connected';
+            } else {
+                status.querySelector('span').textContent = 'Disconnected';
+                status.className = 'connection-status disconnected';
+            }
+        }
+
+        function updatePlayerInfo() {
+            // Update sidebar stats
+            document.getElementById('healthText').textContent = `${gameState.player.health}/${gameState.player.maxHealth}`;
+            document.getElementById('manaText').textContent = `${gameState.player.mana}/${gameState.player.maxMana}`;
+            document.getElementById('expText').textContent = `${gameState.player.experience}/${gameState.player.experienceToNext}`;
+            
+            // Update progress bars
+            const healthPercent = (gameState.player.health / gameState.player.maxHealth) * 100;
+            const manaPercent = (gameState.player.mana / gameState.player.maxMana) * 100;
+            const expPercent = (gameState.player.experience / gameState.player.experienceToNext) * 100;
+            
+            document.getElementById('healthBar').style.width = healthPercent + '%';
+            document.getElementById('manaBar').style.width = manaPercent + '%';
+            document.getElementById('expBar').style.width = expPercent + '%';
+            
+            // Update resources
+            document.getElementById('goldAmount').textContent = gameState.player.resources.gold;
+            document.getElementById('knbAmount').textContent = gameState.player.resources.kim_nguyen_bao;
+            document.getElementById('spiritStones').textContent = gameState.player.resources.spirit_stones;
+            document.getElementById('powerAmount').textContent = calculatePlayerPower();
+            
+            // Update cultivation
+            document.getElementById('cultivationRealm').textContent = gameState.player.cultivation.realm;
+            document.getElementById('cultivationStage').textContent = gameState.player.cultivation.stage;
+            const cultivationPercent = (gameState.player.cultivation.progress / gameState.player.cultivation.progressToNext) * 100;
+            document.getElementById('cultivationProgress').textContent = Math.floor(cultivationPercent) + '%';
+            
+            // Update companions
+            document.getElementById('petName').textContent = gameState.player.pet.name || 'Chưa có';
+            document.getElementById('wifeName').textContent = gameState.player.wife.name || 'Chưa có';
+            
+            // Update arena stats
+            document.getElementById('arenaRank').textContent = gameState.player.arenaStats.rank;
+            document.getElementById('arenaPoints').textContent = gameState.player.arenaStats.points;
+            document.getElementById('arenaWins').textContent = gameState.player.arenaStats.wins;
+            document.getElementById('arenaLosses').textContent = gameState.player.arenaStats.losses;
+            
+            // Update inventory
+            updateInventoryDisplay();
+            
+            // Update quests
+            updateQuestDisplay();
+            
+            // Update guild
+            updateGuildDisplay();
+        }
+
+        function calculatePlayerPower() {
+            let power = 0;
+            Object.values(gameState.player.stats).forEach(stat => power += stat);
+            
+            if (gameState.player.pet && gameState.player.pet.petId) {
+                const petPower = Object.values(gameState.player.pet.stats || {}).reduce((sum, stat) => sum + stat, 0);
+                power += Math.floor(petPower * 0.3);
+            }
+            
+            if (gameState.player.wife && gameState.player.wife.wifeId) {
+                const wifePower = Object.values(gameState.player.wife.stats || {}).reduce((sum, stat) => sum + stat, 0);
+                power += Math.floor(wifePower * 0.2);
+            }
+            
+            return Math.floor(power);
+        }
+
+        function updatePlayersList() {
+            // This function is now handled by the chat panel
+            document.getElementById('onlineCount').textContent = gameState.players.length + 1;
+        }
+
+        function updateInventoryDisplay() {
+            const container = document.getElementById('inventoryItems');
+            if (!gameState.player.inventory || gameState.player.inventory.items.length === 0) {
+                container.innerHTML = '<div class="inventory-slot">Trống</div>';
+                return;
+            }
+
+            container.innerHTML = gameState.player.inventory.items.map(item => `
+                <div class="inventory-slot" onclick="useItem('${item.itemId}')">
+                    <div>${getItemIcon(item.itemId)}</div>
+                    <div>${item.quantity}x</div>
+                </div>
+            `).join('');
+        }
+
+        function updateQuestDisplay() {
+            const container = document.getElementById('activeQuests');
+            if (!gameState.player.activeQuests || gameState.player.activeQuests.length === 0) {
+                container.innerHTML = '<p>Chưa có nhiệm vụ</p>';
+                return;
+            }
+
+            container.innerHTML = gameState.player.activeQuests.map(quest => `
+                <div class="quest-item">
+                    <div class="quest-title">${quest.title || quest.questId}</div>
+                    <div class="quest-progress">Tiến độ: ${quest.progress || 0}%</div>
+                    <button class="btn btn-success" onclick="completeQuest('${quest.questId}')">Hoàn thành</button>
+                </div>
+            `).join('');
+        }
+
+        function updateGuildDisplay() {
+            const container = document.getElementById('guildInfo');
+            if (!gameState.player.guild) {
+                container.innerHTML = '<p>Chưa tham gia bang hội</p><button class="btn" onclick="joinGuild(\'test_guild\')">Tham gia bang hội</button>';
+                return;
+            }
+
+            container.innerHTML = `
+                <p>Bang hội: ${gameState.player.guild.guildId}</p>
+                <p>Cấp bậc: ${gameState.player.guild.rank}</p>
+                <p>Đóng góp: ${gameState.player.guild.contribution}</p>
+            `;
+        }
+
+        function getItemIcon(itemId) {
+            const icons = {
+                'hp_potion_small': '🍷',
+                'mana_potion_small': '💙',
+                'gold_pouch': '💰',
+                'cultivation_pill': '💊',
+                'experience_pill': '💊'
+            };
+            return icons[itemId] || '📦';
+        }
+
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('gameLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> <span>${message}</span>`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function addChatMessage(sender, message, timestamp) {
+            const chat = document.getElementById('chatMessages');
+            const time = new Date(timestamp).toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'chat-message';
+            entry.innerHTML = `<span class="log-timestamp">[${time}]</span> <span class="chat-sender">${sender}:</span> ${message}`;
+            chat.appendChild(entry);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // Game action functions
+        function useItem(itemId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.useItem(itemId);
+        }
+
+        function cultivate(duration) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.cultivate(duration);
+        }
+
+        function obtainPet(petId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.obtainPet(petId);
+        }
+
+        function obtainWife(wifeId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.obtainWife(wifeId);
+        }
+
+        function acceptQuest(questId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.acceptQuest(questId);
+        }
+
+        function adminAddKNB(amount) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.adminAddKNB(amount);
+        }
+
+        function buyItem(itemId, price) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            if (gameState.player.resources.gold < price) {
+                addLog('Không đủ vàng!', 'error');
+                return;
+            }
+            // This would need to be implemented on server side
+            addLog(`Mua ${itemId} với giá ${price} vàng`, 'info');
+        }
+
+        function joinGuild(guildId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.joinGuild(guildId);
+        }
+
+        function completeQuest(questId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.completeQuest(questId);
+        }
+
+        function startArenaMatch() {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            addLog('Bắt đầu tìm kiếm đối thủ...', 'info');
+            // This would need arena matchmaking logic
+        }
+
+        function purchasePremiumItem(itemId) {
+            if (!gameState.connected) {
+                addLog('Chưa kết nối đến server!', 'error');
+                return;
+            }
+            socketManager.purchasePremiumItem(itemId);
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (message && gameState.connected) {
+                socketManager.sendChatMessage(message);
+                input.value = '';
+            }
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // Game loop for UI updates
+        let lastTime = 0;
+        let frameCount = 0;
+        let fps = 60;
+
+        function gameLoop(currentTime) {
+            // Calculate FPS
+            frameCount++;
+            if (currentTime - lastTime >= 1000) {
+                fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            // Update game time
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('gameTime').textContent = timeString;
+
+            // Update ping (simulated)
+            if (gameState.connected) {
+                const ping = Math.floor(Math.random() * 50) + 10; // Simulated ping
+                document.getElementById('ping').textContent = ping + 'ms';
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            initGame();
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>
