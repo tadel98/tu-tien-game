@@ -1,0 +1,44 @@
+# Ignore server files
+server*.js
+server-game-logic.js
+client-socket-manager.js
+
+# Ignore database files
+database/
+models/
+services/
+middleware/
+utils/
+config/
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore scripts
+scripts/
+
+# Ignore logs
+logs/
+
+# Ignore environment files
+.env*
+
+# Ignore node_modules
+node_modules/
+
+# Ignore git files
+.git/
+.gitignore
+.gitattributes
+
+# Ignore other config files
+ecosystem.config.js
+Dockerfile
+docker-compose.yml
+nginx/
+
+# Only include public folder and essential files
+!public/
+!package.json
+!vercel.json
